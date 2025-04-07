@@ -29,3 +29,4 @@ vector_db = Chroma.from_texts(chunks, embedding=embeddings_model, persist_direct
 print(vector_db)
 
 print("ChromaDB created successfully at:", chroma_path)
+ # test
