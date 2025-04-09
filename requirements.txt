@@ -1,0 +1,24 @@
+# Core LangChain packages
+langchain>=0.2.9
+langchain-community>=0.2.0
+langchain-chroma>=0.1.0
+langchain-huggingface>=0.1.0
+
+# Chroma Vector DB
+chromadb>=0.4.0
+
+# HuggingFace Embeddings
+sentence-transformers>=2.2.2
+
+# API / Env handling
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Optional (CLI interface, logging etc.)
+tqdm>=4.66.1
+colorama>=0.4.6
+
+numpy~=1.26.4
+scipy~=1.15.2
+scikit-learn~=1.6.1
+crewai~=0.108.0
