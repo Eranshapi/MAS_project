@@ -18,10 +18,12 @@ vector_db = Chroma(
     embedding_function=embedding_model
 )
 
+
 # ChromaDB Query
 def query_database(query_text, k=3):
     results = vector_db.similarity_search(query_text, k=k)
     return [doc.page_content for doc in results]
+
 
 # Ask Groq LLM
 def ask_groq(prompt):
@@ -41,14 +43,15 @@ def ask_groq(prompt):
         raise Exception(f"Groq API Error: {response.text}")
     return response.json()["choices"][0]["message"]["content"]
 
+
 # Gradio web interface function
 def handle_query(query):
     if not query:
         return "Please enter a question."
-    
+
     result = f"You asked: {query}\n"
     result += "-" * 70 + "\n"
-    
+
     chunks = query_database(query)
     context = "\n".join(chunks)
     '''
@@ -59,13 +62,14 @@ def handle_query(query):
     '''
     prompt = f"בהתבסס על הקונטקסט הבא תענה על השאלה בעברית:\n\nContext:\n{context}\n\nQuestion: {query}"
     answer = ask_groq(prompt)
-    
+
     result += "\nGroq Answer:\n"
     result += "-" * 50 + "\n"
     result += answer + "\n"
     result += "=" * 70 + "\n"
-    
+
     return result
+
 
 # Create and launch the web interface
 def run_gui():
@@ -79,19 +83,20 @@ def run_gui():
         theme="huggingface",
         css=".gradio-container {font-family: 'Arial', sans-serif; font-size: 16px;}"
     )
-    
+
     # Launch the interface
     app_url = interface.launch(share=False, inbrowser=False)
     print(f"Web interface is running at: {app_url}")
-    
+
     # Open the browser after a short delay
     def open_browser():
         webbrowser.open(app_url)
         print(f"Browser opened to: {app_url}")
-    
+
     Timer(1.5, open_browser).start()
-    
+
     return app_url
+
 
 if __name__ == "__main__":
     run_gui()

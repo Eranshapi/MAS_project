@@ -11,6 +11,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Load ChromaDB with HuggingFace Embeddings
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+# embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vector_db = Chroma(
     persist_directory="chroma_db",
     embedding_function=embedding_model

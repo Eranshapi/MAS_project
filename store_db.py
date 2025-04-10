@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from extract_text import extract_text_from_folder
-from preprocess import preprocess_text, split_text_into_chunks
+from preprocess import preprocess_text, split_text_into_chunks, clean_text
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
@@ -9,7 +9,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 load_dotenv()
 
 # Paths
-data_path = "data"
+data_path = "docs"
 chroma_path = "chroma_db"
 
 # Extract text from files
@@ -31,4 +31,4 @@ vector_db = Chroma.from_documents(chunks, embedding=embeddings_model, persist_di
 print(vector_db)
 
 print("ChromaDB created successfully at:", chroma_path)
-print(f"Total Chunks Stored: {len(texts)}")
+print(f"Total Chunks Stored: {len(cleaned_text)}")
