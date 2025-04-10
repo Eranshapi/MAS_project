@@ -1,5 +1,12 @@
 import re
 from typing import List, Dict, Any
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+
+def clean_text(text):
+    text = re.sub(r"\s+", " ", text).strip()  # Remove extra spaces
+    return text
+
 
 def preprocess_text(text: str) -> List[str]:
     """
@@ -13,18 +20,19 @@ def preprocess_text(text: str) -> List[str]:
     """
     # Remove extra whitespace
     text = re.sub(r'\s+', ' ', text).strip()
-    
+
     # Split text into paragraphs (separated by double newlines or similar)
     paragraphs = re.split(r'\n\s*\n', text)
-    
+
     # Clean paragraphs
     cleaned_paragraphs = []
     for para in paragraphs:
         para = para.strip()
         if para:  # Only keep non-empty paragraphs
             cleaned_paragraphs.append(para)
-    
+
     return cleaned_paragraphs
+
 
 def split_text_into_chunks(text_data, chunk_size=500, overlap=50):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap)
