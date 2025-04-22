@@ -2,40 +2,39 @@
 import gradio as gr
 import webbrowser
 from threading import Timer
-from backend import query_database, ask_groq  # Import functions from backend.py
+from backend import query_database, ask_groq
 
-
-# Gradio web interface function
 def handle_query(query):
     if not query:
-        return "Please enter a question."
+        return "אנא הזן שאלה."
 
-    result = f"You asked: {query}\n"
+    result = f"שאלת: {query}\n"
     result += "-" * 70 + "\n"
 
     chunks = query_database(query)
     context = "\n".join(chunks)
 
-    prompt = f"בהתבסס על הקונטקסט הבא תענה על השאלה בעברית:\n\nContext:\n{context}\n\nQuestion: {query}"
+    prompt = (
+        f"בהתבסס על הקונטקסט הבא, ענה על השאלה בעברית:\n\n"
+        f"Context:\n{context}\n\n"
+        f"Question: {query}"
+    )
     answer = ask_groq(prompt)
 
-    result += "\nGroq Answer:\n"
+    result += "\nתשובת הבינה המלאכותית:\n"
     result += "-" * 50 + "\n"
     result += answer + "\n"
     result += "=" * 70 + "\n"
 
     return result
 
-
-# Create and launch the web interface
 def run_gui():
-    # Create Gradio interface
     interface = gr.Interface(
         fn=handle_query,
-        inputs=gr.Textbox(placeholder="Enter your question here...", label="Question"),
-        outputs=gr.Textbox(label="Results", lines=20),
+        inputs=gr.Textbox(placeholder="הכנס שאלה כאן...", label="שאלה"),
+        outputs=gr.Textbox(label="תוצאה", lines=20),
         title="MAS Project - Smart Search",
-        description="Ask questions about your documents and get AI-powered answers.",
+        description="שאל שאלות על מסמכים וקבל תשובות מונחות הקשר מבוססות בינה מלאכותית.",
         theme="default",
         css="""
             .gradio-container {font-family: 'Arial', sans-serif; font-size: 16px;}
@@ -64,19 +63,15 @@ def run_gui():
         """
     )
 
-    # Launch the interface
     app_url = interface.launch(share=False, inbrowser=False)
     print(f"Web interface is running at: {app_url}")
 
-    # Open the browser after a short delay
     def open_browser():
         webbrowser.open(app_url)
         print(f"Browser opened to: {app_url}")
 
     Timer(1.5, open_browser).start()
-
     return app_url
-
 
 if __name__ == "__main__":
     run_gui()
