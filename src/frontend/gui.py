@@ -5,7 +5,7 @@ from src.backend.database import db
 from src.backend.groq_client import groq_client
 from src.frontend.styles import CSS_STYLES
 
-def format_response(query, answer, chunks):
+def format_response(query, answer, chunks_with_scores):
     """Format the response in a more readable way."""
     result = f"שאלת: {query}\n"
     result += "=" * 50 + "\n\n"
@@ -16,8 +16,8 @@ def format_response(query, answer, chunks):
     
     result += "מקורות מידע:\n"
     result += "-" * 40 + "\n"
-    for i, chunk in enumerate(chunks, 1):
-        result += f"[{i}] {chunk}\n\n"
+    for i, (chunk, score) in enumerate(chunks_with_scores, 1):
+        result += f"[{i}] (דמיון: {score:.2%})\n{chunk}\n\n"
     
     result += "=" * 50 + "\n"
     return result
@@ -26,22 +26,41 @@ def handle_query(query, history):
     if not query:
         return "אנא הזן שאלה.", history
     
-    # Get relevant chunks from the database
-    chunks = db.query(query)
+    # Get relevant chunks from the database with scores
+    chunks_with_scores = db.query(query, k=3, score_threshold=0.14)  # Match the database threshold
+    
+    # Debug logging
+    print(f"\nQuery: {query}")
+    print(f"Found {len(chunks_with_scores)} chunks")
+    for i, (chunk, score) in enumerate(chunks_with_scores):
+        print(f"Chunk {i+1} score: {score:.2%}")
+    
+    if not chunks_with_scores:
+        return "לא נמצאו קטעים רלוונטיים מספיק לשאלתך. אנא נסה לנסח את השאלה אחרת.", history
+    
+    # Extract just the chunks for context
+    chunks = [chunk for chunk, _ in chunks_with_scores]
     context = "\n".join(chunks)
 
-    # Prepare the prompt
+    # Prepare the prompt with enhanced structure and instructions
     prompt = (
-        f"תבסס על הקונטקסט הבא, ענה על השאלה בעברית:\n\n"
-        f"Context:\n{context}\n\n"
-        f"Question: {query}"
+        "אתה עוזר חכם שמטרתו לענות על שאלות בהתבסס על מידע מוסמך. "
+        "השתמש במידע הבא כדי לענות על השאלה בצורה מקצועית ומדויקת:\n\n"
+        f"מידע רלוונטי:\n{context}\n\n"
+        f"שאלה: {query}\n\n"
+        "הוראות:\n"
+        "1. ענה בעברית בלבד\n"
+        "2. השתמש רק במידע שסופק בקונטקסט\n"
+        "3. אם המידע בקונטקסט לא מספיק, ציין זאת\n"
+        "4. שמור על תשובה ברורה וממוקדת\n"
+        "5. אם יש מספר נקודות חשובות, פרט אותן בנקודות"
     )
     
     # Get AI response
     answer = groq_client.ask(prompt)
     
     # Format the response
-    formatted_response = format_response(query, answer, chunks)
+    formatted_response = format_response(query, answer, chunks_with_scores)
     
     # Update history with new message format
     history.append({"role": "user", "content": query})
@@ -77,20 +96,20 @@ def run_gui():
             radius_size="md",
             text_size="md",
             spacing_size="md",
-            background_fill_primary="#1a1f2e",
-            background_fill_secondary="#2a3142",
-            text_color="#ffffff",
-            block_background_fill="#1a1f2e",
-            block_border_color="#3a4a6b",
-            block_title_text_color="#ffffff",
-            block_label_text_color="#ffffff",
-            input_background_fill="#2a3142",
-            input_border_color="#3a4a6b",
-            input_text_color="#ffffff",
-            button_primary_background_fill="#4a6b9c",
-            button_primary_text_color="#ffffff",
-            button_secondary_background_fill="#2a3142",
-            button_secondary_text_color="#ffffff"
+            # background_fill_primary="#1a1f2e",
+            # background_fill_secondary="#2a3142",
+            # text_color="#ffffff",
+            # block_background_fill="#1a1f2e",
+            # block_border_color="#3a4a6b",
+            # block_title_text_color="#ffffff",
+            # block_label_text_color="#ffffff",
+            # input_background_fill="#2a3142",
+            # input_border_color="#3a4a6b",
+            # input_text_color="#ffffff",
+            # button_primary_background_fill="#4a6b9c",
+            # button_primary_text_color="#ffffff",
+            # button_secondary_background_fill="#2a3142",
+            # button_secondary_text_color="#ffffff"
         )
     ) as interface:
         with gr.Column(elem_classes="contain"):

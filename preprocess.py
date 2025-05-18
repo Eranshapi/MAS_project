@@ -34,8 +34,13 @@ def preprocess_text(text: str) -> List[str]:
     return cleaned_paragraphs
 
 
-def split_text_into_chunks(text_data, chunk_size=500, overlap=50):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap)
+def split_text_into_chunks(text_data, chunk_size=1000, overlap=200):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        length_function=len,
+        separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+    )
 
     all_chunks = []
     for i, text in enumerate(text_data):

@@ -15,7 +15,7 @@ def load_config():
     
     return {
         "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
-        "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2",
-        "CHROMA_DB_PATH": "data/chroma_db",
+        "EMBEDDING_MODEL": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "CHROMA_DB_PATH": "chroma_db",
         "GROQ_MODEL": "llama3-70b-8192"
     } 

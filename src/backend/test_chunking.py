@@ -1,7 +1,7 @@
 # test_chunking.py
 
 import os
-from backend import query_database
+from ..database import db
 from langchain_community.vectorstores import Chroma
 
 
@@ -29,7 +29,7 @@ def test_query_database():
     print(f"\nQuery: {query}\n")
 
     # Get chunks from the database (replace with real query_database function if DB is set)
-    results = query_database(query)
+    results = db.query(query)
 
     # Print results for inspection
     print("Retrieved Chunks:\n")

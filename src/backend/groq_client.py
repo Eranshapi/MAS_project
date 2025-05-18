@@ -1,5 +1,5 @@
 import requests
-from src.utils.config import load_config
+from ..utils.config import load_config
 
 class GroqClient:
     def __init__(self):

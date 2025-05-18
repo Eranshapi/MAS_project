@@ -9,7 +9,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 load_dotenv()
 
 # Paths
-data_path = "docs"
+data_path = r"C:\Users\erans\.cursor\MAS_Project\docs"
 chroma_path = "chroma_db"
 
 # Extract text from files
