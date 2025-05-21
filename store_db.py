@@ -1,34 +1,102 @@
 import os
+import shutil
+import tkinter as tk
+from tkinter import ttk
 from dotenv import load_dotenv
 from extract_text import extract_text_from_folder
 from preprocess import preprocess_text, split_text_into_chunks, clean_text
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+from src.utils.config import load_config
 
-# Load environment variables
+def create_chunks_window(chunks_data):
+    # Create the main window
+    root = tk.Tk()
+    root.title("Database Chunks Viewer")
+    root.geometry("1200x800")  # Set a large initial size
+
+    # Create main frame
+    main_frame = ttk.Frame(root)
+    main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    # Create a canvas with scrollbar
+    canvas = tk.Canvas(main_frame)
+    scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+    scrollable_frame = ttk.Frame(canvas)
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    # Pack the canvas and scrollbar
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # Add chunks to the scrollable frame
+    for i, (doc, metadata) in enumerate(zip(chunks_data['documents'], chunks_data['metadatas']), 1):
+        # Create a frame for each chunk
+        chunk_frame = ttk.LabelFrame(scrollable_frame, text=f"Chunk {i}/{len(chunks_data['ids'])}")
+        chunk_frame.pack(fill="x", padx=5, pady=5)
+
+        # Add source file information
+        source_label = ttk.Label(chunk_frame, text=f"Source File: {metadata.get('source', 'Unknown')}")
+        source_label.pack(anchor="w", padx=5, pady=2)
+
+        # Add content in a text widget
+        content_text = tk.Text(chunk_frame, wrap=tk.WORD, height=10)
+        content_text.pack(fill="x", padx=5, pady=5)
+        content_text.insert("1.0", doc)
+        content_text.config(state="disabled")  # Make read-only
+
+        # Add separator
+        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", padx=5, pady=5)
+
+    # Add a close button at the bottom
+    close_button = ttk.Button(scrollable_frame, text="Close", command=root.destroy)
+    close_button.pack(pady=10)
+
+    # Start the main loop
+    root.mainloop()
+
+# Load environment variables and config
 load_dotenv()
+config = load_config()
 
 # Paths
-data_path = r"C:\Users\erans\.cursor\MAS_Project\docs"
-chroma_path = "chroma_db"
+data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
+chroma_path = config["CHROMA_DB_PATH"]
+
+# Delete existing database if it exists
+if os.path.exists(chroma_path):
+    print(f"Deleting existing database at {chroma_path}")
+    shutil.rmtree(chroma_path)
 
 # Extract text from files
 text_data = extract_text_from_folder(data_path)
-print(f"Extracted text data: {text_data[:5]}")  # Print the first 5 items to check
+print(f"\nExtracted text data from {len(text_data)} files")
 
 # Preprocess text
 cleaned_text = [clean_text(txt) for txt in text_data]
 chunks = split_text_into_chunks(cleaned_text)
 
-# Initialize HuggingFace Embeddings
-embeddings_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-embeddings = embeddings_model.embed_documents(cleaned_text)
-print(f"Generated embeddings: {embeddings[:5]}")  # Print the first 5 embeddings to check
+# Filter out empty or whitespace-only chunks
+filtered_chunks = [chunk for chunk in chunks if chunk.page_content.strip()]
+
+# Initialize HuggingFace Embeddings with the same model as the main application
+embeddings_model = HuggingFaceEmbeddings(model_name=config["EMBEDDING_MODEL"])
 
 # Store in ChromaDB (auto-persist)
-vector_db = Chroma.from_documents(chunks, embedding=embeddings_model, persist_directory=chroma_path)
+vector_db = Chroma.from_documents(filtered_chunks, embedding=embeddings_model, persist_directory=chroma_path)
 
-print(vector_db)
+print("\nChromaDB created successfully at:", chroma_path)
+print(f"Total Chunks Stored: {len(filtered_chunks)}")
 
-print("ChromaDB created successfully at:", chroma_path)
-print(f"Total Chunks Stored: {len(cleaned_text)}")
+# Get all documents from the database
+results = vector_db.get()
+
+# Display chunks in a separate window
+create_chunks_window(results)

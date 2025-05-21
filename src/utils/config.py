@@ -13,9 +13,12 @@ def load_config():
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
     
+    # Get the absolute path of the project root directory
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
     return {
         "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
         "EMBEDDING_MODEL": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-        "CHROMA_DB_PATH": "chroma_db",
+        "CHROMA_DB_PATH": os.path.join(project_root, "chroma_db"),
         "GROQ_MODEL": "llama3-70b-8192"
     } 
