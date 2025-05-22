@@ -5,30 +5,27 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+from src.utils.config import load_config
 
-# Load environment variables
-load_dotenv()
-
-# Load the ChromaDB
-persist_directory = "chroma_db"
-
-# Define your embedding model (same as used during storage)
-embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-# Load the database
-vector_db = Chroma(persist_directory=persist_directory, embedding_function=embedding_model)
-
-# Fetch all vectors
-ids = vector_db.get(include=["documents", "embeddings"])
-
-# Ensure embeddings exist
-if not ids['embeddings']:
-    print("No embeddings found. Please check the ChromaDB data.")
-    exit()
-
-
-# Function to plot the vectors using PCA for dimensionality reduction
 def plot_vectors():
+    """Plot vector embeddings in 2D space using PCA."""
+    # Load configuration
+    config = load_config()
+    
+    # Load the database
+    vector_db = Chroma(
+        persist_directory=config["CHROMA_DB_PATH"],
+        embedding_function=HuggingFaceEmbeddings(model_name=config["EMBEDDING_MODEL"])
+    )
+
+    # Fetch all vectors
+    ids = vector_db.get(include=["documents", "embeddings"])
+
+    # Ensure embeddings exist
+    if not ids['embeddings']:
+        print("No embeddings found. Please check the ChromaDB data.")
+        return
+
     embeddings = np.array(ids['embeddings'])
     pca = PCA(n_components=2)  # Reduce to 2 dimensions for visualization
     reduced_embeddings = pca.fit_transform(embeddings)
@@ -46,8 +43,6 @@ def plot_vectors():
     plt.ylabel('PCA Component 2')
     plt.show()
 
-
-# Main code for plotting vectors
 if __name__ == "__main__":
     print("Plotting vector embeddings in 2D...")
-    plot_vectors()
+    plot_vectors() 

@@ -8,6 +8,8 @@ import logging
 import tempfile
 import sys
 import shutil
+import pdfplumber
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(
@@ -79,55 +81,60 @@ def extract_text_from_pptx(file_path):
 
 def extract_text_from_pdf(file_path):
     """
-    Extract text from PDF files, handling both regular and scanned PDFs.
-    Uses PyMuPDF for regular PDFs and OCR for scanned PDFs.
+    Extract text from PDF files, handling both regular text and tables.
+    Uses pdfplumber for better table extraction and PyMuPDF for regular text.
     Supports Hebrew text recognition.
     """
     if not check_dependencies():
         return ""
 
     try:
-        # First try regular PDF extraction
-        doc = fitz.open(file_path)
-        text = []
+        text_content = []
         
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            
-            # Try regular text extraction first
-            page_text = page.get_text("text")
-            
-            # If no text is found, the page might be scanned
-            if not page_text.strip():
-                logger.info(f"Page {page_num + 1} appears to be scanned, using OCR...")
+        # First try with pdfplumber for better table handling
+        with pdfplumber.open(file_path) as pdf:
+            for page_num, page in enumerate(pdf.pages):
+                page_text = []
                 
-                try:
-                    # Convert PDF page to image
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        # Convert PDF page to image
-                        images = convert_from_path(
-                            file_path,
-                            first_page=page_num + 1,
-                            last_page=page_num + 1,
-                            dpi=300,  # Higher DPI for better OCR results
-                            output_folder=temp_dir
-                        )
-                        
-                        if images:
-                            # Perform OCR on the image with Hebrew language support
-                            page_text = pytesseract.image_to_string(
-                                images[0],
-                                lang='heb+eng',  # Support both Hebrew and English
-                                config='--psm 1'  # Automatic page segmentation with OSD
+                # Extract tables
+                tables = page.extract_tables()
+                if tables:
+                    for table in tables:
+                        # Convert table to DataFrame for better handling
+                        df = pd.DataFrame(table[1:], columns=table[0])
+                        # Convert table to string with proper formatting
+                        table_text = df.to_string(index=False)
+                        page_text.append(f"\nTable:\n{table_text}\n")
+                
+                # Extract regular text
+                page_text.append(page.extract_text() or "")
+                
+                # If no text is found, the page might be scanned
+                if not any(text.strip() for text in page_text):
+                    logger.info(f"Page {page_num + 1} appears to be scanned, using OCR...")
+                    try:
+                        with tempfile.TemporaryDirectory() as temp_dir:
+                            images = convert_from_path(
+                                file_path,
+                                first_page=page_num + 1,
+                                last_page=page_num + 1,
+                                dpi=300,
+                                output_folder=temp_dir
                             )
-                except Exception as e:
-                    logger.error(f"OCR failed for page {page_num + 1}: {str(e)}")
-                    page_text = ""
-            
-            text.append(page_text)
+                            
+                            if images:
+                                page_text = [pytesseract.image_to_string(
+                                    images[0],
+                                    lang='heb+eng',
+                                    config='--psm 1'
+                                )]
+                    except Exception as e:
+                        logger.error(f"OCR failed for page {page_num + 1}: {str(e)}")
+                        page_text = [""]
+                
+                text_content.append("\n".join(page_text))
         
-        doc.close()
-        return "\n".join(text)
+        return "\n\n".join(text_content)
     
     except Exception as e:
         logger.error(f"Error extracting text from PDF {file_path}: {str(e)}")

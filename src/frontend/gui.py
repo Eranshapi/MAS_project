@@ -171,13 +171,25 @@ def run_gui():
     # Launch the interface
     app_url = interface.launch(
         share=False,
-        inbrowser=False
+        inbrowser=False,
+        prevent_thread_lock=True
     )
-    print(f"Web interface is running at: {app_url}")
-
+    print(app_url[1]+"?__theme=dark")
+    
     def open_browser():
-        webbrowser.open(app_url)
-        print(f"Browser opened to: {app_url}")
+        webbrowser.open(app_url[1]+"?__theme=dark")
+        print(f"Browser opened to: {app_url[1]}?__theme=dark")
 
     Timer(1.5, open_browser).start()
+    
+    try:
+        # Keep the main thread alive
+        while True:
+            import time
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down server...")
+        interface.close()
+    
     return app_url 
+    

@@ -1,7 +1,7 @@
 # test_chunking.py
 
 import os
-from ..database import db
+from database import db
 from langchain_community.vectorstores import Chroma
 
 
