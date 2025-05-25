@@ -24,7 +24,7 @@ def format_response(query, answer, chunks_with_scores):
 
 def handle_query(query, history):
     if not query:
-        return "אנא הזן שאלה.", history
+        return "", history
     
     # Get relevant chunks from the database with scores
     chunks_with_scores = db.query(query, k=3, score_threshold=0.14)  # Match the database threshold
@@ -36,7 +36,7 @@ def handle_query(query, history):
         print(f"Chunk {i+1} score: {score:.2%}")
     
     if not chunks_with_scores:
-        return "לא נמצאו קטעים רלוונטיים מספיק לשאלתך. אנא נסה לנסח את השאלה אחרת.", history
+        return "", history
     
     # Extract just the chunks for context
     chunks = [chunk for chunk, _ in chunks_with_scores]
@@ -77,7 +77,6 @@ def create_header():
             gr.Markdown(
                 """
                 # מערכת חיפוש חכמה - חיל האוויר
-                ## Smart Search System - Israeli Air Force
                 """,
                 elem_classes="header-text"
             )
@@ -86,60 +85,26 @@ def create_header():
 
 def run_gui():
     """Run the enhanced GUI interface."""
-    with gr.Blocks(
-        css=CSS_STYLES,
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="blue",
-            neutral_hue="slate",
-            font=["Segoe UI", "Arial", "sans-serif"],
-            radius_size="md",
-            text_size="md",
-            spacing_size="md",
-            # background_fill_primary="#1a1f2e",
-            # background_fill_secondary="#2a3142",
-            # text_color="#ffffff",
-            # block_background_fill="#1a1f2e",
-            # block_border_color="#3a4a6b",
-            # block_title_text_color="#ffffff",
-            # block_label_text_color="#ffffff",
-            # input_background_fill="#2a3142",
-            # input_border_color="#3a4a6b",
-            # input_text_color="#ffffff",
-            # button_primary_background_fill="#4a6b9c",
-            # button_primary_text_color="#ffffff",
-            # button_secondary_background_fill="#2a3142",
-            # button_secondary_text_color="#ffffff"
-        )
-    ) as interface:
+    with gr.Blocks(css=CSS_STYLES) as interface:
         with gr.Column(elem_classes="contain"):
             create_header()
-            
-            with gr.Row(elem_classes="description-row"):
-                with gr.Column():
-                    gr.Markdown(
-                        """
-                        ### שאל שאלות על מסמכים וקבל תשובות מונחות הקשר מבוססות בינה מלאכותית
-                        Ask questions about documents and get context-based AI-powered answers
-                        """,
-                        elem_classes="description-text"
-                    )
             
             with gr.Row(elem_classes="input-row"):
                 with gr.Column(scale=5):
                     query_input = gr.Textbox(
+                        show_label=False,
                         placeholder="הכנס שאלה כאן... (Enter לשליחה, Shift+Enter לשורה חדשה)",
-                        label="שאלה",
-                        lines=2,
+                        label=None,
+                        lines=1,
                         elem_classes="query-input",
                         show_copy_button=False,
                         interactive=True,
                         autofocus=True,
-                        max_lines=2
+                        max_lines=1
                     )
-                with gr.Column(scale=1, min_width=120):
+                with gr.Column(scale=1, min_width=80):
                     submit_btn = gr.Button(
-                        "שלח שאלה",
+                        "שלח",
                         variant="primary",
                         elem_classes="submit-button"
                     )
@@ -162,6 +127,7 @@ def run_gui():
                 outputs=[query_input, chatbot]
             )
             
+            # Handle Enter key press (Gradio's built-in submit event)
             query_input.submit(
                 handle_query,
                 inputs=[query_input, chatbot],
