@@ -27,7 +27,7 @@ def handle_query(query, history):
         return "", history
     
     # Get relevant chunks from the database with scores
-    chunks_with_scores = db.query(query, k=3, score_threshold=0.14)  # Match the database threshold
+    chunks_with_scores = db.query(query, k=3, score_threshold=0.1)  # Match the database threshold
     
     # Debug logging
     print(f"\nQuery: {query}")

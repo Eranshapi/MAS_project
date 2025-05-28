@@ -25,6 +25,15 @@ def create_chunks_window(chunks_data):
     main_frame = ttk.Frame(root)
     main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+    # Create search frame at the top
+    search_frame = ttk.Frame(main_frame)
+    search_frame.pack(fill="x", padx=5, pady=5)
+    
+    ttk.Label(search_frame, text="Search:").pack(side="left", padx=5)
+    search_var = tk.StringVar()
+    search_entry = ttk.Entry(search_frame, textvariable=search_var, width=50)
+    search_entry.pack(side="left", padx=5)
+    
     # Create a canvas with scrollbar
     canvas = tk.Canvas(main_frame)
     scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
@@ -42,11 +51,20 @@ def create_chunks_window(chunks_data):
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
+    # Store all chunk frames for search functionality
+    chunk_frames = []
+
+    # Print debug information
+    print(f"\nCreating window with {len(chunks_data['documents'])} chunks")
+    print(f"Number of metadatas: {len(chunks_data['metadatas'])}")
+    print(f"Number of IDs: {len(chunks_data['ids'])}")
+
     # Add chunks to the scrollable frame
     for i, (doc, metadata) in enumerate(zip(chunks_data['documents'], chunks_data['metadatas']), 1):
         # Create a frame for each chunk
         chunk_frame = ttk.LabelFrame(scrollable_frame, text=f"Chunk {i}/{len(chunks_data['ids'])}")
         chunk_frame.pack(fill="x", padx=5, pady=5)
+        chunk_frames.append(chunk_frame)
 
         # Create metadata frame
         metadata_frame = ttk.Frame(chunk_frame)
@@ -75,12 +93,75 @@ def create_chunks_window(chunks_data):
         # Add separator
         ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", padx=5, pady=5)
 
+    def search_chunks(*args):
+        search_term = search_var.get().lower()
+        for frame in chunk_frames:
+            # Get the content text widget from the frame
+            content_text = frame.winfo_children()[1]  # The text widget is the second child
+            content = content_text.get("1.0", "end-1c").lower()
+            
+            # Show/hide based on search term
+            if search_term in content:
+                frame.pack(fill="x", padx=5, pady=5)
+            else:
+                frame.pack_forget()
+
+    # Bind search function to search variable changes
+    search_var.trace("w", search_chunks)
+
     # Add a close button at the bottom
     close_button = ttk.Button(scrollable_frame, text="Close", command=root.destroy)
     close_button.pack(pady=10)
 
     # Start the main loop
     root.mainloop()
+
+def save_chunks_to_file(chunks_data, output_file="chunks_view.txt"):
+    """
+    Save all chunks to a text file in a readable format.
+    """
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("=" * 80 + "\n")
+        f.write("SEARCHABLE CHUNKS VIEW\n")
+        f.write("=" * 80 + "\n\n")
+        
+        for i, (doc, metadata) in enumerate(zip(chunks_data['documents'], chunks_data['metadatas']), 1):
+            if doc.strip():  # Only write non-empty chunks
+                f.write(f"CHUNK {i}\n")
+                f.write("-" * 40 + "\n")
+                
+                # Check if this is a table
+                if doc.startswith("Table:"):
+                    # Split the table content
+                    table_lines = doc.replace("Table:", "").strip().split("\n")
+                    
+                    # Find the maximum width of each column
+                    max_widths = []
+                    for line in table_lines:
+                        # Split by multiple spaces to handle table columns
+                        columns = [col.strip() for col in line.split() if col.strip()]
+                        # Update max widths
+                        while len(max_widths) < len(columns):
+                            max_widths.append(0)
+                        for j, col in enumerate(columns):
+                            max_widths[j] = max(max_widths[j], len(col))
+                    
+                    # Format and write the table
+                    for line in table_lines:
+                        columns = [col.strip() for col in line.split() if col.strip()]
+                        # Pad each column to its maximum width
+                        formatted_columns = []
+                        for j, col in enumerate(columns):
+                            if j < len(max_widths):
+                                formatted_columns.append(col.ljust(max_widths[j]))
+                        # Join columns with proper spacing
+                        f.write("    " + "    ".join(formatted_columns) + "\n")
+                else:
+                    # Regular text, write as is
+                    f.write(doc.strip())
+                
+                f.write("\n\n")
+                f.write("=" * 80 + "\n\n")
 
 # Load environment variables and config
 load_dotenv()
@@ -116,7 +197,14 @@ print("\nChromaDB created successfully at:", chroma_path)
 print(f"Total Chunks Stored: {len(filtered_chunks)}")
 
 # Get all documents from the database with their metadata
-results = vector_db.get()
+results = vector_db.get(include=['documents', 'metadatas', 'embeddings'])
+
+# Print the actual number of chunks retrieved
+print(f"\nNumber of chunks retrieved from database: {len(results['documents'])}")
+
+# Save chunks to file
+save_chunks_to_file(results)
+print(f"\nChunks saved to chunks_view.txt")
 
 # Display chunks in a separate window
 create_chunks_window(results)

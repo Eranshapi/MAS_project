@@ -67,7 +67,7 @@ def preprocess_text(text: str) -> List[str]:
 
 def split_text_into_chunks(text_data, chunk_size=1000, overlap=200):
     """
-    Split text into chunks while preserving table structure.
+    Split text into chunks while preserving table structure and grouping related content.
     """
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
@@ -118,11 +118,45 @@ def split_text_into_chunks(text_data, chunk_size=1000, overlap=200):
                 )
                 all_chunks.extend(chunks)
         else:
-            # Regular text splitting
-            chunks = text_splitter.create_documents(
-                [cleaned],
-                metadatas=[{"source_doc": f"doc_{i}"}]
-            )
-            all_chunks.extend(chunks)
+            # For regular text, group related content before splitting
+            lines = cleaned.split('\n')
+            current_group = []
+            current_content = []
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Check if this is an acronym-definition pair
+                if ' - ' in line:
+                    # If we have accumulated content and this is a new acronym,
+                    # create a chunk from the previous content
+                    if current_content and len(current_content) > 0:
+                        current_group.append('\n'.join(current_content))
+                        current_content = []
+                    
+                    # Add the acronym-definition pair
+                    current_content.append(line)
+                else:
+                    # Regular content, add to current group
+                    current_content.append(line)
+                
+                # If we've accumulated enough content, create a chunk
+                if len('\n'.join(current_content)) >= chunk_size:
+                    current_group.append('\n'.join(current_content))
+                    current_content = []
+            
+            # Add any remaining content
+            if current_content:
+                current_group.append('\n'.join(current_content))
+            
+            # Create chunks from the grouped content
+            for group in current_group:
+                chunks = text_splitter.create_documents(
+                    [group],
+                    metadatas=[{"source_doc": f"doc_{i}"}]
+                )
+                all_chunks.extend(chunks)
 
     return all_chunks
