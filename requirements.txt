@@ -36,3 +36,8 @@ matplotlib>=3.8.0
 # Utilities
 tqdm>=4.66.1
 colorama>=0.4.6
+
+# Enhanced Text Extraction
+opencv-python>=4.5.0
+numpy>=1.19.0
+langdetect>=1.0.9
