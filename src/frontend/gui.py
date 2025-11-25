@@ -1,9 +1,24 @@
 import gradio as gr
 import webbrowser
+import os
+import base64
 from threading import Timer
 from src.backend.database import db
 from src.backend.groq_client import groq_client
 from src.frontend.styles import CSS_STYLES
+
+# Get absolute paths for images
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+TECH_LOGO_PATH = os.path.join(BASE_DIR, "data", "Technology_Headquarters_Logo.png")
+IAF_LOGO_PATH = os.path.join(BASE_DIR, "data", "IAF_New_Logo_2018.png")
+
+# Convert images to base64 for reliable display
+def image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+TECH_LOGO_BASE64 = image_to_base64(TECH_LOGO_PATH)
+IAF_LOGO_BASE64 = image_to_base64(IAF_LOGO_PATH)
 
 def format_response(query, answer, chunks_with_scores):
     """Format the response in a more readable way."""
@@ -71,17 +86,22 @@ def handle_query(query, history):
 def create_header():
     """Create a header component with logos and title."""
     with gr.Row(elem_classes="header-row"):
-        with gr.Column(scale=1, min_width=150):
-            gr.Image("data/Technology_Headquarters_Logo.png", show_label=False, height=75)
-        with gr.Column(scale=2):
-            gr.Markdown(
-                """
-                # מערכת חיפוש חכמה - חיל האוויר
-                """,
-                elem_classes="header-text"
-            )
-        with gr.Column(scale=1, min_width=150):
-            gr.Image("data/IAF_New_Logo_2018.png", show_label=False, height=75)
+        # Technology Headquarters Logo
+        gr.HTML(
+            f'<img src="data:image/png;base64,{TECH_LOGO_BASE64}" alt="Technology Headquarters Logo">',
+            elem_classes="left-logo"
+        )
+        gr.Markdown(
+            """
+            # מערכת חיפוש חכמה - חיל האוויר
+            """,
+            elem_classes="header-text"
+        )
+        # IAF Logo
+        gr.HTML(
+            f'<img src="data:image/png;base64,{IAF_LOGO_BASE64}" alt="IAF Logo">',
+            elem_classes="right-logo"
+        )
 
 def run_gui():
     """Run the enhanced GUI interface."""
@@ -138,7 +158,8 @@ def run_gui():
     app_url = interface.launch(
         share=False,
         inbrowser=False,
-        prevent_thread_lock=True
+        prevent_thread_lock=True,
+        show_api=False
     )
     print(app_url[1]+"?__theme=dark")
     

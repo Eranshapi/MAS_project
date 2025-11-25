@@ -7,7 +7,7 @@ CSS_STYLES = """
         --text-color: #ffffff;        /* Main text color */
         --border-color: #3a4a6b;      /* Color for borders and separators */
         --accent-color: #4a6b9c;      /* Accent color for highlights and focus states */
-        --header-height: 80px;        /* Height of the header section */
+        --header-height: 120px;       /* Height of the header section */
         --input-height: 50px;         /* Height of the input box */
         --chat-height: calc(100vh - var(--header-height) - 40px);  /* Height of chat area */
     }
@@ -47,28 +47,48 @@ CSS_STYLES = """
         position: relative !important;
         z-index: 10 !important;
         justify-content: center !important;
+        align-items: center !important;
+        background: transparent !important;
     }
 
     /* ===== HEADER LOGOS ===== */
-    /* Styling for the logo images in the header */
-    .header-row img {
-        pointer-events: none !important;
-        user-select: none !important;
-        -webkit-user-drag: none !important;
-        opacity: 0.9 !important;
-        filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3)) !important;
-        mix-blend-mode: luminosity !important;
+    /* Simple positioning for images */
+    .header-row .left-logo, .header-row .right-logo {
         position: absolute !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        z-index: 20 !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 100% !important;
+        width: 150px !important;
+        overflow: visible !important;
     }
 
-    /* Position the left logo */
-    .header-row img:first-child {
+    .header-row .left-logo {
         left: 20px !important;
+        justify-content: flex-start !important;
     }
 
-    /* Position the right logo */
-    .header-row img:last-child {
+    .header-row .right-logo {
         right: 20px !important;
+        justify-content: flex-end !important;
+    }
+
+    .header-row .left-logo img, .header-row .right-logo img {
+        height: auto !important;
+        max-height: 90px !important;
+        width: auto !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
+        display: block !important;
+        border: none !important;
+        background: transparent !important;
     }
 
     /* ===== HEADER TEXT ===== */
@@ -400,19 +420,37 @@ CSS_STYLES = """
         background: var(--accent-color) !important;
     }
 
+    /* ===== HIDE FOOTER AND TOGGLE ===== */
+    footer {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Only hide prose in the footer if possible, or target specific elements to hide */
+    /* .gradio-container .prose { display: none !important; }  <-- REMOVED THIS LINE */
+
+    /* Hide the theme toggle and other floating elements if present */
+    .icon-button-wrapper {
+        display: none !important;
+    }
+
     /* ===== RESPONSIVE DESIGN ===== */
     /* Adjustments for different screen sizes */
     @media (min-width: 1024px) {
         :root {
-            --header-height: 100px;
+            --header-height: 120px;
             --input-height: 60px;
         }
     }
 
     @media (max-width: 1023px) {
         :root {
-            --header-height: 80px;
+            --header-height: 100px;
             --input-height: 60px;
+        }
+        
+        .header-row .left-logo img, .header-row .right-logo img {
+            max-height: 70px !important;
         }
     }
 """ 
