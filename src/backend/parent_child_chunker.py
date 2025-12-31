@@ -2,7 +2,13 @@
 Parent-Document Retrieval (Parent-Child Chunking) Processor
 
 This module processes a folder of raw documents into a Parent-Document Retrieval
-structure using LangChain. It supports .txt, .pdf, and .docx files.
+structure using LangChain. It supports .txt, .pdf (with Surya OCR for scanned files),
+.docx, and .pptx files.
+
+Features:
+- Surya OCR for scanned/image-based PDFs with Hebrew (RTL) support
+- Parent-child chunking for improved retrieval
+- Automatic detection of scanned vs text-based PDFs
 
 Author: Senior RAG Engineer
 """
@@ -10,8 +16,9 @@ Author: Senior RAG Engineer
 import re
 import unicodedata
 import uuid
+import logging
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
@@ -23,16 +30,34 @@ from langchain_community.document_loaders import (
 )
 from langchain.schema import Document
 
+# Import Surya OCR module for scanned PDF support
+try:
+    from surya_ocr import (
+        load_pdf_with_surya,
+        is_scanned_pdf,
+        check_surya_available,
+        PDFEncryptedException,
+        PDFCorruptedException,
+        OCRFailedException,
+    )
+    SURYA_OCR_AVAILABLE = check_surya_available()
+except ImportError:
+    SURYA_OCR_AVAILABLE = False
+    load_pdf_with_surya = None
+    is_scanned_pdf = None
+
+logger = logging.getLogger(__name__)
+
 
 def clean_text(text: str) -> str:
     """
-    Clean and preprocess document text.
+    Clean and preprocess document text with Hebrew/RTL support.
     
     Applies the following transformations:
-    - Normalizes Unicode (NFKD)
+    - Normalizes Unicode (NFC for proper Hebrew handling)
     - Removes HTML tags
     - Removes redundant whitespace
-    - Repairs broken line breaks within sentences (common in PDFs)
+    - Repairs broken line breaks within sentences (for both Latin and Hebrew)
     
     Args:
         text: Raw text content from a document.
@@ -40,16 +65,18 @@ def clean_text(text: str) -> str:
     Returns:
         Cleaned and normalized text.
     """
-    # Step 1: Normalize Unicode (NFKD decomposition)
-    text = unicodedata.normalize('NFKD', text)
+    # Step 1: Normalize Unicode (NFC composition - better for Hebrew)
+    # NFC keeps composed characters together, which is preferred for Hebrew nikud
+    text = unicodedata.normalize('NFC', text)
     
     # Step 2: Remove HTML tags
     text = re.sub(r'<[^>]+>', '', text)
     
     # Step 3: Repair broken line breaks within sentences (common in PDFs)
-    # Replace single newlines that break sentences (not paragraph breaks)
-    # A single newline between words (not followed by another newline) is replaced with a space
+    # Handle Latin characters
     text = re.sub(r'(?<=[a-zA-Z,;:\-])\n(?=[a-zA-Z])', ' ', text)
+    # Handle Hebrew characters (א-ת range: \u05D0-\u05EA)
+    text = re.sub(r'(?<=[\u05D0-\u05EA,;:\-])\n(?=[\u05D0-\u05EA])', ' ', text)
     
     # Step 4: Normalize multiple spaces to single space
     text = re.sub(r'[ \t]+', ' ', text)
@@ -92,32 +119,94 @@ def preprocess_documents(documents: List[Document]) -> List[Document]:
     return cleaned_documents
 
 
-def load_documents_from_directory(directory_path: str) -> List[Document]:
+def load_pdf_document(
+    pdf_path: str,
+    use_surya_ocr: bool = True,
+    languages: Optional[List[str]] = None,
+) -> List[Document]:
+    """
+    Load a single PDF document, using Surya OCR for scanned pages.
+    
+    This function intelligently selects the extraction method:
+    - For text-based PDFs: Uses PyPDFLoader (faster)
+    - For scanned PDFs: Uses Surya OCR with Hebrew support
+    
+    Args:
+        pdf_path: Path to the PDF file
+        use_surya_ocr: Enable Surya OCR for scanned PDFs (default: True)
+        languages: Language codes for OCR (default: ['he', 'en'])
+        
+    Returns:
+        List of Document objects (one per page with text)
+    """
+    if languages is None:
+        languages = ['he', 'en']
+    
+    pdf_path = str(Path(pdf_path).resolve())
+    
+    # Try Surya OCR if available and enabled
+    if use_surya_ocr and SURYA_OCR_AVAILABLE and is_scanned_pdf is not None:
+        try:
+            # Check if PDF is scanned (needs OCR)
+            needs_ocr = is_scanned_pdf(pdf_path)
+            
+            if needs_ocr:
+                logger.info(f"Using Surya OCR for scanned PDF: {pdf_path}")
+                return load_pdf_with_surya(pdf_path, languages=languages)
+            else:
+                logger.info(f"Using direct text extraction for: {pdf_path}")
+                
+        except (PDFEncryptedException, PDFCorruptedException) as e:
+            logger.error(f"PDF error: {e}")
+            raise
+        except Exception as e:
+            logger.warning(f"Surya OCR check failed, falling back to PyPDF: {e}")
+    
+    # Fallback to PyPDFLoader for text-based PDFs
+    try:
+        loader = PyPDFLoader(pdf_path)
+        return loader.load()
+    except Exception as e:
+        logger.error(f"Failed to load PDF: {pdf_path} - {e}")
+        return []
+
+
+def load_documents_from_directory(
+    directory_path: str,
+    use_surya_ocr: bool = True,
+    ocr_languages: Optional[List[str]] = None,
+) -> List[Document]:
     """
     Load documents from a directory supporting multiple file formats.
     
     Supports:
     - .txt files (TextLoader)
-    - .pdf files (PyPDFLoader)
+    - .pdf files (Surya OCR for scanned, PyPDFLoader for text-based)
     - .docx files (Docx2txtLoader)
+    - .pptx files (UnstructuredPowerPointLoader)
     
     Args:
         directory_path: Path to the directory containing documents.
+        use_surya_ocr: Enable Surya OCR for scanned PDFs (default: True)
+        ocr_languages: Language codes for OCR (default: ['he', 'en'])
         
     Returns:
         List of loaded Document objects.
     """
-    # Define loader mapping for different file types
+    if ocr_languages is None:
+        ocr_languages = ['he', 'en']
+    
+    # Define loader mapping for non-PDF file types
     loader_map = {
         ".txt": TextLoader,
-        ".pdf": PyPDFLoader,
         ".docx": Docx2txtLoader,
         ".pptx": UnstructuredPowerPointLoader,
     }
     
     all_documents = []
+    dir_path = Path(directory_path)
     
-    # Load documents for each file type
+    # Load non-PDF documents using DirectoryLoader
     for extension, loader_class in loader_map.items():
         try:
             loader = DirectoryLoader(
@@ -132,6 +221,31 @@ def load_documents_from_directory(directory_path: str) -> List[Document]:
             print(f"Loaded {len(documents)} {extension} file(s)")
         except Exception as e:
             print(f"Warning: Error loading {extension} files: {e}")
+    
+    # Load PDF documents with smart OCR detection
+    pdf_files = list(dir_path.glob("**/*.pdf"))
+    pdf_count = 0
+    ocr_count = 0
+    
+    for pdf_file in pdf_files:
+        try:
+            docs = load_pdf_document(
+                str(pdf_file),
+                use_surya_ocr=use_surya_ocr,
+                languages=ocr_languages,
+            )
+            all_documents.extend(docs)
+            pdf_count += 1
+            
+            # Track if OCR was used
+            if docs and docs[0].metadata.get('extraction_method') == 'ocr':
+                ocr_count += 1
+                
+        except Exception as e:
+            print(f"Warning: Error loading PDF {pdf_file}: {e}")
+    
+    if pdf_count > 0:
+        print(f"Loaded {pdf_count} .pdf file(s) (OCR used: {ocr_count})")
     
     return all_documents
 
